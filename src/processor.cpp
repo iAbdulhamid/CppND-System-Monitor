@@ -1,37 +1,22 @@
 #include "processor.h"
 
-// TODO: Return the aggregate CPU utilization
+#include <vector>
+
+#include "linux_parser.h"
+
+// Returns the aggregate CPU utilization
 float Processor::Utilization() {
-  prevuser = user;
-  prevnice = nice;
-  prevsystem = system;
-  previdle = idle;
-  previowait = iowait;
-  previrq = irq;
-  prevsoftirq = softirq;
-  prevsteal = steal;
+  long idle = LinuxParser::IdleJiffies();
+  long active = LinuxParser::ActiveJiffies();
 
-  std::ifstream stream(LinuxParser::kProcDirectory +
-                       LinuxParser::kStatFilename);
-  if (stream.is_open()) {
-    std::getline(stream, line);
-    std::istringstream linestream(line);
-    linestream >> s >> user >> nice >> system >> idle >> iowait >> irq >>
-        softirq >> steal;
-  }
+  long prevTotal = prevIdle_ + prevActive_;
+  long total = LinuxParser::Jiffies();
 
-  PrevIdle = previdle + previowait;
-  Idle = idle + iowait;
+  long totalDelta = total - prevTotal;
+  long idleDelta = idle - prevIdle_;
 
-  PrevNonIdle =
-      prevuser + prevnice + prevsystem + previrq + prevsoftirq + prevsteal;
-  NonIdle = user + nice + system + irq + softirq + steal;
+  prevIdle_ = idle;
+  prevActive_ = active;
 
-  PrevTotal = PrevIdle + PrevNonIdle;
-  Total = Idle + NonIdle;
-
-  totald = Total - PrevTotal;
-  idled = Idle - PrevIdle;
-
-  return (totald - idled) / float(totald);
+  return ((float)(totalDelta - idleDelta) / (float)totalDelta);
 }
